@@ -147,10 +147,11 @@ function shellCommand(option) {
         // 编译失败
         if (
             webpackShell.stdout.includes('Failed to compile.') ||
-            webpackShell.stdout.includes('[failed]')
+            webpackShell.stdout.includes('[failed]') ||
+            webpackShell.stderr.includes('ERR')
         ) {
             shell.echo(`编译出错，请检查后再试！`);
-            console.log(webpackShell.stdout.red);
+            console.log((webpackShell.stderr ? webpackShell.stderr : webpackShell.stdout).red);
             shell.exit(1);
         }
         // 编译成功
@@ -161,7 +162,11 @@ function shellCommand(option) {
         ) {
             try {
                 shell.mkdir('distProject');
-                shell.cp('-R', 'dist/*', 'distProject/');
+                const copy = shell.cp('-R', 'dist/*', 'distProject/');
+                if (copy.stderr.includer('no such file or directory')) {
+                    console.log(copy.stderr);
+                    shell.exit(1);
+                }
             } catch (e) {
                 console.error(e.red)
             }
@@ -170,7 +175,12 @@ function shellCommand(option) {
         if (!onlyPackage) {
             console.log(`开始上传...`.green);
             const winscpCommand = `winscp /command "open sftp://${winscpConf}""" "cd ../${targetDir}" "put distProject " "call cp -rf reactJs/${projectName} reactJs/backup" "call cp -rf distProject/* reactJs/${projectName}/" "rmdir distProject" "exit"`;
-            const upLoad = shell.exec(winscpCommand);
+            try {
+                shell.exec(winscpCommand);
+            } catch (e) {
+                console.log(e)
+            }
+
         }
         resolve();
     }))
